@@ -37,7 +37,10 @@ jobs:
         run: |
           curl -fsSL https://sprites.dev/install.sh | sh
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          # Headless runner has no keyring; store the token in a file instead.
+          "$HOME/.local/bin/sprite" org keyring disable
           "$HOME/.local/bin/sprite" auth setup --token "$SPRITES_TOKEN"
+          "$HOME/.local/bin/sprite" org list
         env:
           SPRITES_TOKEN: ${{ secrets.SPRITES_TOKEN }}
 
@@ -74,6 +77,7 @@ jobs:
     steps:
       - run: |
           curl -fsSL https://sprites.dev/install.sh | sh
+          "$HOME/.local/bin/sprite" org keyring disable
           "$HOME/.local/bin/sprite" auth setup --token "$SPRITES_TOKEN"
           "$HOME/.local/bin/sprite" destroy --force "$SPRITE_NAME" || true
         env:
