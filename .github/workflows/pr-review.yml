@@ -38,19 +38,18 @@ jobs:
         run: |
           curl -fsSL https://sprites.dev/install.sh | sh
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          "$HOME/.local/bin/sprite" auth setup --token "$SPRITES_TOKEN" --org "$SPRITE_ORG"
+          "$HOME/.local/bin/sprite" auth setup --token "$SPRITES_TOKEN"
         env:
           SPRITES_TOKEN: ${{ secrets.SPRITES_TOKEN }}
 
       - name: Create sprite if missing
-        run: sprite list --prefix "$SPRITE_NAME" | grep -q "$SPRITE_NAME" || sprite create --skip-console --label pr-review "$SPRITE_NAME"
+        run: sprite list --prefix "$SPRITE_NAME" | grep -q "$SPRITE_NAME" || sprite create --skip-console "$SPRITE_NAME"
 
+      # sprite exec --env takes ONE comma-separated KEY=value list.
       - name: Bootstrap (no-op after first run)
         run: |
-          sprite exec -s "$SPRITE_NAME" \
-            --env REPO="${{ github.repository }}" \
-            --env PR_REVIEW_REPO="$PR_REVIEW_REPO" \
-            --env GH_TOKEN="${{ github.token }}" \
+          sprite exec -s "$SPRITE_NAME" --no-stdin \
+            --env "REPO=${{ github.repository }},PR_REVIEW_REPO=$PR_REVIEW_REPO,GH_TOKEN=${{ github.token }}" \
             -- bash -c "curl -fsSL $SCRIPTS/bootstrap.sh | bash"
 
       - name: Resolve head SHA
@@ -66,13 +65,8 @@ jobs:
 
       - name: Review round
         run: |
-          sprite exec -s "$SPRITE_NAME" \
-            --env PR="${{ github.repository }}#${{ github.event.pull_request.number || github.event.issue.number }}" \
-            --env HEAD_SHA="${{ steps.head.outputs.sha }}" \
-            --env GH_TOKEN="${{ github.token }}" \
-            --env ANTHROPIC_API_KEY="${{ secrets.ANTHROPIC_API_KEY }}" \
-            --env GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
-            --env PRREVIEW_MODEL="${{ vars.PRREVIEW_MODEL }}" \
+          sprite exec -s "$SPRITE_NAME" --no-stdin \
+            --env "PR=${{ github.repository }}#${{ github.event.pull_request.number || github.event.issue.number }},HEAD_SHA=${{ steps.head.outputs.sha }},GH_TOKEN=${{ github.token }},ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }},GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},PRREVIEW_MODEL=${{ vars.PRREVIEW_MODEL }}" \
             -- bash -c "curl -fsSL $SCRIPTS/round.sh | bash"
 
   destroy:
@@ -81,7 +75,7 @@ jobs:
     steps:
       - run: |
           curl -fsSL https://sprites.dev/install.sh | sh
-          "$HOME/.local/bin/sprite" auth setup --token "$SPRITES_TOKEN" --org "$SPRITE_ORG"
+          "$HOME/.local/bin/sprite" auth setup --token "$SPRITES_TOKEN"
           "$HOME/.local/bin/sprite" destroy --force "$SPRITE_NAME" || true
         env:
           SPRITES_TOKEN: ${{ secrets.SPRITES_TOKEN }}
