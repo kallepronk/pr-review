@@ -3,7 +3,7 @@
 #
 # Repository secrets: SPRITES_TOKEN (sprites.dev/account) and one model key:
 # GEMINI_API_KEY or ANTHROPIC_API_KEY (the reviewer picks whichever is set).
-# Repository variables: SPRITE_ORG (your sprites org slug); optional PRREVIEW_MODEL.
+# Repository variables: optional PRREVIEW_MODEL. The org comes from the token.
 name: pr-review
 
 on:
@@ -22,7 +22,6 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SPRITE_ORG: ${{ vars.SPRITE_ORG }}
   SPRITE_NAME: pr-${{ github.event.repository.name }}-${{ github.event.pull_request.number || github.event.issue.number }}
   PR_REVIEW_REPO: kallepronk/pr-review
   SCRIPTS: https://raw.githubusercontent.com/kallepronk/pr-review/main/scripts
