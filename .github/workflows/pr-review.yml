@@ -1,0 +1,85 @@
+# Copy this file into each repo that wants reviews (.github/workflows/pr-review.yml).
+# Thin trigger: create the per-PR sprite if needed, bootstrap once, run one round.
+#
+# Repository secrets: SPRITES_TOKEN (sprites.dev/account), ANTHROPIC_API_KEY.
+# Repository variables: SPRITE_ORG (your sprites org slug).
+name: pr-review
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, closed]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: pr-review-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: false
+
+env:
+  SPRITE_ORG: ${{ vars.SPRITE_ORG }}
+  SPRITE_NAME: pr-${{ github.event.repository.name }}-${{ github.event.pull_request.number || github.event.issue.number }}
+  PR_REVIEW_REPO: kallepronk/pr-review
+  SCRIPTS: https://raw.githubusercontent.com/kallepronk/pr-review/main/scripts
+
+jobs:
+  review:
+    if: |
+      (github.event_name == 'pull_request' && github.event.action != 'closed') ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '@pr-reviewer review'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install and authenticate sprite CLI
+        run: |
+          curl -fsSL https://sprites.dev/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/sprite" auth setup --token "$SPRITES_TOKEN" --org "$SPRITE_ORG"
+        env:
+          SPRITES_TOKEN: ${{ secrets.SPRITES_TOKEN }}
+
+      - name: Create sprite if missing
+        run: sprite list --prefix "$SPRITE_NAME" | grep -q "$SPRITE_NAME" || sprite create --skip-console --label pr-review "$SPRITE_NAME"
+
+      - name: Bootstrap (no-op after first run)
+        run: |
+          sprite exec -s "$SPRITE_NAME" \
+            --env REPO="${{ github.repository }}" \
+            --env PR_REVIEW_REPO="$PR_REVIEW_REPO" \
+            --env GH_TOKEN="${{ github.token }}" \
+            -- bash -c "curl -fsSL $SCRIPTS/bootstrap.sh | bash"
+
+      - name: Resolve head SHA
+        id: head
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "sha=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=$(gh pr view ${{ github.event.issue.number }} --repo ${{ github.repository }} --json headRefOid -q .headRefOid)" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Review round
+        run: |
+          sprite exec -s "$SPRITE_NAME" \
+            --env PR="${{ github.repository }}#${{ github.event.pull_request.number || github.event.issue.number }}" \
+            --env HEAD_SHA="${{ steps.head.outputs.sha }}" \
+            --env GH_TOKEN="${{ github.token }}" \
+            --env ANTHROPIC_API_KEY="${{ secrets.ANTHROPIC_API_KEY }}" \
+            --env PRREVIEW_MODEL="${{ vars.PRREVIEW_MODEL || 'claude-haiku-4-5' }}" \
+            -- bash -c "curl -fsSL $SCRIPTS/round.sh | bash"
+
+  destroy:
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -fsSL https://sprites.dev/install.sh | sh
+          "$HOME/.local/bin/sprite" auth setup --token "$SPRITES_TOKEN" --org "$SPRITE_ORG"
+          "$HOME/.local/bin/sprite" destroy --force "$SPRITE_NAME" || true
+        env:
+          SPRITES_TOKEN: ${{ secrets.SPRITES_TOKEN }}
