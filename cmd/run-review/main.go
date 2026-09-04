@@ -30,7 +30,7 @@ func main() {
 		prRef       = flag.String("pr", "", "owner/repo#N or PR URL (required)")
 		workdir     = flag.String("workdir", ".", "where state.json and rounds/ live")
 		repoDir     = flag.String("repo", "", "local checkout for read-only tools; empty disables tool tickets")
-		provider    = flag.String("provider", llm.Provider(), "anthropic or openrouter (text-only tickets; pi follows)")
+		provider    = flag.String("provider", llm.Provider(), "anthropic, gemini or openrouter (text-only tickets; pi follows)")
 		model       = flag.String("model", envOr("PRREVIEW_MODEL", ""), "cheap model id in the provider's naming; default per provider")
 		strong      = flag.String("strong-model", envOr("PRREVIEW_STRONG_MODEL", ""), "model for the architecture ticket (unused yet)")
 		parallel    = flag.Int("parallel", 6, "concurrent model calls")
@@ -48,7 +48,7 @@ func main() {
 	if *model == "" {
 		*model = llm.DefaultModel(*provider)
 	}
-	var text llm.Asker = llm.NewHTTP()
+	var text llm.Asker = llm.NewHTTP(*provider)
 	if *provider == "anthropic" {
 		text = llm.NewAnthropic()
 	}

@@ -23,20 +23,24 @@ type Asker interface {
 	Ask(ctx context.Context, model, prompt, cwd string) (string, error)
 }
 
-// HTTP talks to /chat/completions. PRREVIEW_LLM_BASE defaults to OpenRouter;
-// OPENROUTER_API_KEY is optional (empty when behind the Sprites gateway).
+// HTTP talks to an OpenAI-compatible /chat/completions endpoint: OpenRouter,
+// Gemini's compatibility endpoint, or the Sprites gateway. PRREVIEW_LLM_BASE
+// overrides the base URL; the key may be empty behind the gateway.
 type HTTP struct {
 	Base string
 	Key  string
 	http *http.Client
 }
 
-func NewHTTP() *HTTP {
-	base := os.Getenv("PRREVIEW_LLM_BASE")
-	if base == "" {
-		base = "https://openrouter.ai/api/v1"
+func NewHTTP(provider string) *HTTP {
+	base, key := "https://openrouter.ai/api/v1", os.Getenv("OPENROUTER_API_KEY")
+	if provider == "gemini" {
+		base, key = "https://generativelanguage.googleapis.com/v1beta/openai", os.Getenv("GEMINI_API_KEY")
 	}
-	return &HTTP{Base: strings.TrimRight(base, "/"), Key: os.Getenv("OPENROUTER_API_KEY"), http: &http.Client{Timeout: 3 * time.Minute}}
+	if b := os.Getenv("PRREVIEW_LLM_BASE"); b != "" {
+		base = b
+	}
+	return &HTTP{Base: strings.TrimRight(base, "/"), Key: key, http: &http.Client{Timeout: 3 * time.Minute}}
 }
 
 func (h *HTTP) Ask(ctx context.Context, model, prompt, _ string) (string, error) {
@@ -81,7 +85,7 @@ func (h *HTTP) Ask(ctx context.Context, model, prompt, _ string) (string, error)
 }
 
 // Pi shells out to `pi -p` with a read-only tool set. Keys are pi's business:
-// it reads ANTHROPIC_API_KEY / OPENROUTER_API_KEY from the environment.
+// it reads ANTHROPIC_API_KEY / GEMINI_API_KEY / OPENROUTER_API_KEY from the environment.
 type Pi struct {
 	Bin      string
 	Provider string // pi --provider value (anthropic, openrouter, ...)

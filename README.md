@@ -18,15 +18,15 @@ scripts/round.sh       one review round inside the sprite
 
 ## Local run (phase 1)
 
-Needs Go, an Anthropic key (or OpenRouter key), a GitHub token with `repo` scope, and optionally `pi` (`npm i -g @earendil-works/pi-coding-agent`) plus a local checkout of the target repo for the tool-using tickets.
+Needs Go, a model key (Gemini, Anthropic or OpenRouter), a GitHub token with `repo` scope, and optionally `pi` (`npm i -g @earendil-works/pi-coding-agent`) plus a local checkout of the target repo for the tool-using tickets.
 
 ```bash
-export ANTHROPIC_API_KEY=...
+export GEMINI_API_KEY=...          # or ANTHROPIC_API_KEY / OPENROUTER_API_KEY
 export GH_TOKEN=$(gh auth token)
 go run ./cmd/run-review -pr owner/repo#123 -repo /path/to/checkout -dry-run
 ```
 
-Provider is picked from the environment: `ANTHROPIC_API_KEY` present means Anthropic (`claude-haiku-4-5`), otherwise OpenRouter. Override with `-provider` / `-model`.
+Provider is picked from whichever key is set: Anthropic (`claude-haiku-4-5`), then Gemini (`gemini-2.5-flash-lite`, via Google's OpenAI-compatible endpoint), else OpenRouter. Override with `-provider` / `-model`.
 
 Without `-repo`, only the text-only tickets run (project instructions, tests). Drop `-dry-run` to post. Every prompt and raw answer lands in `rounds/N/` for inspection.
 
@@ -38,9 +38,9 @@ go test ./...
 
 | Env / flag | Purpose |
 |---|---|
-| `PRREVIEW_PROVIDER` / `-provider` | `anthropic` (default when `ANTHROPIC_API_KEY` set) or `openrouter` |
-| `PRREVIEW_MODEL` / `-model` | cheap model id in the provider's naming; default `claude-haiku-4-5` |
-| `ANTHROPIC_API_KEY` | Anthropic provider, also read by pi |
+| `PRREVIEW_PROVIDER` / `-provider` | `anthropic`, `gemini` or `openrouter`; default from which key is present |
+| `PRREVIEW_MODEL` / `-model` | cheap model id in the provider's naming; default per provider |
+| `ANTHROPIC_API_KEY`, `GEMINI_API_KEY` | Anthropic / Gemini providers, also read by pi |
 | `OPENROUTER_API_KEY`, `PRREVIEW_LLM_BASE` | OpenRouter provider; base defaults to openrouter.ai, or the Sprites gateway |
 | `GH_TOKEN`, `PRREVIEW_GITHUB_BASE` | GitHub auth; in Actions the job token is passed into the sprite |
 | `-min-score` | verification threshold, default 80 |

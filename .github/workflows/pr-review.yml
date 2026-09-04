@@ -1,8 +1,9 @@
 # Copy this file into each repo that wants reviews (.github/workflows/pr-review.yml).
 # Thin trigger: create the per-PR sprite if needed, bootstrap once, run one round.
 #
-# Repository secrets: SPRITES_TOKEN (sprites.dev/account), ANTHROPIC_API_KEY.
-# Repository variables: SPRITE_ORG (your sprites org slug).
+# Repository secrets: SPRITES_TOKEN (sprites.dev/account) and one model key:
+# GEMINI_API_KEY or ANTHROPIC_API_KEY (the reviewer picks whichever is set).
+# Repository variables: SPRITE_ORG (your sprites org slug); optional PRREVIEW_MODEL.
 name: pr-review
 
 on:
@@ -70,7 +71,8 @@ jobs:
             --env HEAD_SHA="${{ steps.head.outputs.sha }}" \
             --env GH_TOKEN="${{ github.token }}" \
             --env ANTHROPIC_API_KEY="${{ secrets.ANTHROPIC_API_KEY }}" \
-            --env PRREVIEW_MODEL="${{ vars.PRREVIEW_MODEL || 'claude-haiku-4-5' }}" \
+            --env GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
+            --env PRREVIEW_MODEL="${{ vars.PRREVIEW_MODEL }}" \
             -- bash -c "curl -fsSL $SCRIPTS/round.sh | bash"
 
   destroy:
