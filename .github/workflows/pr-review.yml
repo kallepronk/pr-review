@@ -24,8 +24,8 @@ concurrency:
 env:
   SPRITE_NAME: pr-${{ github.event.repository.name }}-${{ github.event.pull_request.number || github.event.issue.number }}
   PR_REVIEW_REPO: kallepronk/pr-review
-  # ?run= busts raw.githubusercontent.com's 5-minute CDN cache.
-  SCRIPTS: https://raw.githubusercontent.com/kallepronk/pr-review/main/scripts
+  # Scripts run from a git clone inside the sprite: raw.githubusercontent.com caches for 5 min and ignores query strings.
+  SYNC: mkdir -p /work && (test -d /work/pr-review || git clone -q --depth 1 https://github.com/kallepronk/pr-review.git /work/pr-review) && git -C /work/pr-review pull -q --ff-only
 
 jobs:
   review:
@@ -53,8 +53,8 @@ jobs:
       - name: Bootstrap (no-op after first run)
         run: |
           sprite exec -s "$SPRITE_NAME" --no-stdin \
-            --env "REPO=${{ github.repository }},PR_REVIEW_REPO=$PR_REVIEW_REPO,GH_TOKEN=${{ github.token }}" \
-            -- bash -c "curl -fsSL '$SCRIPTS/bootstrap.sh?run=$GITHUB_RUN_ID' | bash"
+            --env "REPO=${{ github.repository }},GH_TOKEN=${{ github.token }}" \
+            -- bash -c "$SYNC && bash /work/pr-review/scripts/bootstrap.sh"
 
       - name: Resolve head SHA
         id: head
@@ -71,7 +71,7 @@ jobs:
         run: |
           sprite exec -s "$SPRITE_NAME" --no-stdin \
             --env "PR=${{ github.repository }}#${{ github.event.pull_request.number || github.event.issue.number }},HEAD_SHA=${{ steps.head.outputs.sha }},GH_TOKEN=${{ github.token }},ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }},GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},PRREVIEW_MODEL=${{ vars.PRREVIEW_MODEL }}" \
-            -- bash -c "curl -fsSL '$SCRIPTS/round.sh?run=$GITHUB_RUN_ID' | bash"
+            -- bash -c "$SYNC && bash /work/pr-review/scripts/round.sh"
 
   destroy:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'

@@ -17,9 +17,8 @@ if ! git -c "http.extraheader=$AUTH" fetch --quiet origin "$HEAD_SHA" 2>/dev/nul
 fi
 git checkout --quiet "$HEAD_SHA"
 
-# Refresh the reviewer binary when its repo moved (cheap: shallow pull + build).
-if git -C /work/pr-review pull --quiet --ff-only 2>/dev/null | grep -q .; then
-  (cd /work/pr-review && go build -o /usr/local/bin/run-review ./cmd/run-review)
-fi
+# Rebuild the reviewer; the workflow already pulled /work/pr-review. Go's build
+# cache makes this a no-op when nothing changed.
+(cd /work/pr-review && go build -o /usr/local/bin/run-review ./cmd/run-review)
 
 exec flock -n /work/.lock run-review -pr "$PR" -workdir /work -repo /work/repo "$@"

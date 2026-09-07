@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Runs once inside a fresh sprite. Idempotent: guarded by /work/.bootstrapped.
-# Env: REPO (owner/name of the repo under review), PR_REVIEW_REPO (owner/name
-# of this tool's repo, public), GH_TOKEN (for cloning REPO if private).
+# Env: REPO (owner/name of the repo under review), GH_TOKEN (for cloning REPO if private).
 set -euo pipefail
 
 if [ -f /work/.bootstrapped ]; then exit 0; fi
@@ -11,9 +10,9 @@ mkdir -p /work
 # preinstalled on sprites; pi reads ANTHROPIC_API_KEY from the environment.
 npm install -g --ignore-scripts @earendil-works/pi-coding-agent
 
-# Build run-review from source; Go is preinstalled on sprites.
+# Build run-review from source; Go is preinstalled on sprites. The workflow
+# has already cloned this repo to /work/pr-review (that is where this script runs from).
 command -v go >/dev/null || { echo "go not found in sprite" >&2; exit 1; }
-git clone --depth 1 "https://github.com/${PR_REVIEW_REPO}.git" /work/pr-review
 (cd /work/pr-review && go build -o /usr/local/bin/run-review ./cmd/run-review)
 
 # Clone the repo under review. Token only needed for private repos.
