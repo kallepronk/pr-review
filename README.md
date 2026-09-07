@@ -13,7 +13,8 @@ internal/github/       minimal REST + GraphQL client, gateway-aware
 prompts/               every model-facing prompt, embedded in the binary
 scripts/bootstrap.sh   one-time sprite setup (pi, build binary from source, clone, checkpoint)
 scripts/round.sh       one review round inside the sprite
-.github/workflows/     pr-review.yml: trigger to copy into target repos
+.github/workflows/     pr-review.yml: trigger to copy into target repos; it git-clones this repo
+                       into the sprite and runs the scripts from there (no raw CDN, no caching lag)
 ```
 
 ## Local run (phase 1)
@@ -45,6 +46,15 @@ go test ./...
 | `GH_TOKEN`, `PRREVIEW_GITHUB_BASE` | GitHub auth; in Actions the job token is passed into the sprite |
 | `-min-score` | verification threshold, default 80 |
 | `-max-findings`, `-max-hunks` | caps per round |
+
+## Sprite setup gotchas (learned the hard way)
+
+- `SPRITES_TOKEN` must be a Sprites token from sprites.dev/account, format `org-slug/org-id/token-id/token-value`. A Fly.io token (`FlyV1 fm2_…`) is silently accepted by `sprite auth setup` and then fails with "authentication failed".
+- Paste it without surrounding whitespace; the workflow strips it anyway.
+- Headless runners have no keyring: `sprite org keyring disable` before `auth setup`.
+- `sprite exec --env` takes one comma-separated `K=v,K2=v2` list, not repeated flags.
+- Non-interactive exec has no login PATH; `round.sh` adds npm's global bin so `pi` resolves.
+- Git-over-HTTPS wants `Authorization: basic base64(x-access-token:TOKEN)`, not Bearer.
 
 ## Not done yet
 
