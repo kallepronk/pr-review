@@ -17,6 +17,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"prreview/internal/gather"
@@ -184,11 +185,11 @@ func instructions(gh *github.Client, owner, repo, ref string, files []string) st
 }
 
 func logger(dir string) func(kind, name, prompt, answer string) {
-	var n int
+	var n atomic.Int32 // called from parallel ticket goroutines
 	return func(kind, name, prompt, answer string) {
-		n++
+		seq := n.Add(1)
 		safe := regexp.MustCompile(`[^a-zA-Z0-9._-]+`).ReplaceAllString(name, "_")
-		base := filepath.Join(dir, fmt.Sprintf("%03d-%s-%s", n, kind, safe))
+		base := filepath.Join(dir, fmt.Sprintf("%03d-%s-%s", seq, kind, safe))
 		_ = os.WriteFile(base+".prompt.md", []byte(prompt), 0o644)
 		_ = os.WriteFile(base+".answer.txt", []byte(answer), 0o644)
 	}

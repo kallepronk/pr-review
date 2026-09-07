@@ -10,7 +10,7 @@ Score the finding from 0 to 100 using exactly this scale:
 - 75: Highly confident. You double checked the issue, and verified that it is very likely a real issue that will be hit in practice. The existing approach in the PR is insufficient. The issue is very important and will directly impact the code's functionality, or it is an issue that is directly mentioned in the project instructions.
 - 100: Absolutely certain. You double checked the issue, and confirmed that it is definitely a real issue, that will happen frequently in practice. The evidence directly confirms this.
 
-Score 0 when: the problem existed before the change; a linter or compiler would catch it; the behaviour is clearly intended by the change; the finding claims a rule from project instructions that the instructions do not actually state; the quoted evidence does not appear in the hunk.
+Score 0 when: the evidence is a removed line (starts with `-` in the hunk) or the claim is about code that was deleted; the problem existed before the change; a linter or compiler would catch it; the behaviour is clearly intended by the change; the finding claims a rule from project instructions that the instructions do not actually state; the quoted evidence does not appear in the hunk.
 
 Return only JSON, no prose: {"score":<0-100>,"reason":"<one sentence>"}
 
