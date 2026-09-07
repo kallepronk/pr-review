@@ -5,7 +5,9 @@
 set -euo pipefail
 
 cd /work/repo
-git -c "http.extraheader=Authorization: Bearer ${GH_TOKEN}" fetch --quiet origin "$HEAD_SHA"
+# Same header shape actions/checkout uses; Bearer gets a 401 from git-over-HTTPS.
+AUTH="Authorization: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')"
+git -c "http.extraheader=$AUTH" fetch --quiet origin "$HEAD_SHA"
 git checkout --quiet "$HEAD_SHA"
 
 # Refresh the reviewer binary when its repo moved (cheap: shallow pull + build).
