@@ -5,9 +5,16 @@
 set -euo pipefail
 
 cd /work/repo
-# Same header shape actions/checkout uses; Bearer gets a 401 from git-over-HTTPS.
+REPO_SLUG="${PR%%#*}"
+# Diagnostics: never the token itself, only its shape and what the API says about it.
+echo "GH_TOKEN: prefix=${GH_TOKEN:0:4} len=${#GH_TOKEN} api=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer ${GH_TOKEN}" "https://api.github.com/repos/${REPO_SLUG}")"
+# Same header shape actions/checkout uses. Public repos also work anonymously,
+# so fall back to that rather than failing the round on an auth hiccup.
 AUTH="Authorization: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')"
-git -c "http.extraheader=$AUTH" fetch --quiet origin "$HEAD_SHA"
+if ! git -c "http.extraheader=$AUTH" fetch --quiet origin "$HEAD_SHA" 2>/dev/null; then
+  echo "warn: authenticated fetch failed, retrying anonymously" >&2
+  git fetch --quiet origin "$HEAD_SHA"
+fi
 git checkout --quiet "$HEAD_SHA"
 
 # Refresh the reviewer binary when its repo moved (cheap: shallow pull + build).
