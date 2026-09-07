@@ -108,7 +108,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	var comments []github.ReviewComment
+	comments := []github.ReviewComment{} // never nil: GitHub rejects "comments": null
 	for _, f := range findings {
 		if state.AlreadyPosted(f.Path, f.Line, f.Dimension) {
 			continue

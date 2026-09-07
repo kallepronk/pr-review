@@ -4,6 +4,9 @@
 # PRREVIEW_MODEL. Extra args are passed to run-review (e.g. -dry-run).
 set -euo pipefail
 
+# Non-interactive exec has no login PATH; npm's global bin (pi lives there) must be added.
+export PATH="$(npm prefix -g)/bin:$PATH"
+
 cd /work/repo
 REPO_SLUG="${PR%%#*}"
 # Diagnostics: never the token itself, only its shape and what the API says about it.
