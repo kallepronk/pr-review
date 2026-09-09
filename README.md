@@ -41,7 +41,7 @@ go test ./...
 - Comment `/review` to run a round on demand, drafts included. Reconciles earlier findings against your replies and new commits, then reviews what changed.
 - Comment `/review full` to re-review the whole diff (already posted findings are not repeated).
 - The bot reacts 👀 on the PR or your comment while working, then 🚀 (done) or 😕 (failed).
-- Reply on a finding's thread to dispute it. Next round the bot either withdraws and resolves, or answers once and then leaves the call to you. Fixed findings get resolved automatically.
+- Reply on a finding's thread to dispute it. Next round the bot either withdraws, or answers once and then leaves the call to you. Fixed findings get a closing reply. Threads are not marked resolved yet: the Actions token is not allowed to (`Resource not accessible by integration`); that arrives with the GitHub App identity.
 - Lockfiles, build output, vendored and generated files are never reviewed.
 
 ## Configuration

@@ -188,11 +188,12 @@ func main() {
 			}
 		}
 		if a.Resolve {
+			// Closed from our side either way, so the thread is never reconciled twice.
+			// GITHUB_TOKEN cannot resolve threads (FORBIDDEN); a GitHub App token can.
 			if err := gh.ResolveThread(f.ThreadID); err != nil {
-				log.Printf("warn: resolve %s: %v", f.Key(), err)
-			} else {
-				f.Resolved = true
+				log.Printf("warn: resolve %s: %v (thread left open for a human)", f.Key(), err)
 			}
+			f.Resolved = true
 		} else {
 			state.RebuttalCount[f.Key()]++
 		}

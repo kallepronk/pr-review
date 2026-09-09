@@ -289,7 +289,7 @@ func Summary(round, newFindings, resolved, rebutted int, skipped []string) strin
 			fmt.Fprintf(&b, "Found %d new issue(s), see inline comments. Each was checked twice; anything below the confidence bar was dropped.\n", newFindings)
 		}
 		if resolved > 0 {
-			fmt.Fprintf(&b, "Resolved %d earlier thread(s).\n", resolved)
+			fmt.Fprintf(&b, "Closed %d earlier thread(s) (fixed or withdrawn).\n", resolved)
 		}
 		if rebutted > 0 {
 			fmt.Fprintf(&b, "Replied on %d disputed thread(s).\n", rebutted)

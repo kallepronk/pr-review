@@ -93,10 +93,10 @@ func Reconcile(ctx context.Context, cfg Config, state *gather.State, threads []g
 		a := Action{Index: i, Verdict: v}
 		switch v.Status {
 		case "fixed":
-			a.Reply = "Fixed, resolving."
+			a.Reply = "Fixed in the latest changes, closing this from my side."
 			a.Resolve = true
 		case "disputed_invalid":
-			a.Reply = firstNonEmpty(v.Reply, "You're right, withdrawing this one.")
+			a.Reply = firstNonEmpty(v.Reply, "You're right, withdrawing this one.") + "\n\n<sub>Withdrawn; feel free to resolve the thread.</sub>"
 			a.Resolve = true
 		case "disputed_valid":
 			if state.RebuttalCount[f.Key()] >= cfg.MaxRebuttals {
