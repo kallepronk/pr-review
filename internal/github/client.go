@@ -162,16 +162,36 @@ type ReviewComment struct {
 	Body      string `json:"body"`
 }
 
-// CreateReview posts one review with inline comments. event is always COMMENT:
-// the bot never approves or blocks.
-func (c *Client) CreateReview(owner, repo string, n int, commit, body string, comments []ReviewComment) error {
+// CreateReview posts one review with inline comments and returns its id. event
+// is always COMMENT: the bot never approves or blocks.
+func (c *Client) CreateReview(owner, repo string, n int, commit, body string, comments []ReviewComment) (int64, error) {
 	in := map[string]any{
 		"commit_id": commit,
 		"body":      body,
 		"event":     "COMMENT",
 		"comments":  comments,
 	}
-	return c.do("POST", fmt.Sprintf("/repos/%s/%s/pulls/%d/reviews", owner, repo, n), "", in, nil)
+	var out struct {
+		ID int64 `json:"id"`
+	}
+	err := c.do("POST", fmt.Sprintf("/repos/%s/%s/pulls/%d/reviews", owner, repo, n), "", in, &out)
+	return out.ID, err
+}
+
+// PostedComment is one inline comment as GitHub stored it.
+type PostedComment struct {
+	ID           int64  `json:"id"`
+	Path         string `json:"path"`
+	Line         int    `json:"line"`
+	OriginalLine int    `json:"original_line"`
+}
+
+// ReviewComments lists the inline comments of one review, so their ids can be
+// remembered for later thread reconciliation.
+func (c *Client) ReviewComments(owner, repo string, n int, reviewID int64) ([]PostedComment, error) {
+	var out []PostedComment
+	err := c.do("GET", fmt.Sprintf("/repos/%s/%s/pulls/%d/reviews/%d/comments?per_page=100", owner, repo, n, reviewID), "", nil, &out)
+	return out, err
 }
 
 func (c *Client) IssueComment(owner, repo string, n int, body string) error {

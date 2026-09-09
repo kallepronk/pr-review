@@ -47,16 +47,17 @@ var HunkTickets = []Ticket{
 }
 
 type Config struct {
-	Model       string // cheap model for text-only tickets and verification
-	PiModel     string // same model in pi's naming, for tool tickets
-	StrongModel string // architecture ticket; unused until structure.json exists
-	Parallel    int
-	MinScore    int
-	MaxFindings int
-	HTTP        llm.Asker
-	Pi          llm.Asker
-	RepoDir     string // checkout for pi tools; "" disables tool tickets
-	Log         func(kind, name, prompt, answer string)
+	Model        string // cheap model for text-only tickets and verification
+	PiModel      string // same model in pi's naming, for tool tickets
+	StrongModel  string // architecture ticket; unused until structure.json exists
+	Parallel     int
+	MinScore     int
+	MaxFindings  int
+	MaxRebuttals int // replies we post on a disputed thread before going quiet
+	HTTP         llm.Asker
+	Pi           llm.Asker
+	RepoDir      string // checkout for pi tools; "" disables tool tickets
+	Log          func(kind, name, prompt, answer string)
 }
 
 type Inputs struct {
@@ -277,9 +278,26 @@ func CommentBody(f Finding, owner, repo, sha string) string {
 }
 
 // Summary is the review's top-level body.
-func Summary(n, round int) string {
-	if n == 0 {
-		return fmt.Sprintf("### Code review (round %d)\n\nNo issues found. Checked for bugs, security, project-instruction compliance and test coverage on changed lines.\n\n<sub>React 👍 if useful, 👎 if noise.</sub>", round)
+func Summary(round, newFindings, resolved, rebutted int, skipped []string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "### Code review (round %d)\n\n", round)
+	switch {
+	case newFindings == 0 && resolved == 0 && rebutted == 0:
+		b.WriteString("No issues found. Checked for bugs, security, project-instruction compliance and test coverage on changed lines.\n")
+	default:
+		if newFindings > 0 {
+			fmt.Fprintf(&b, "Found %d new issue(s), see inline comments. Each was checked twice; anything below the confidence bar was dropped.\n", newFindings)
+		}
+		if resolved > 0 {
+			fmt.Fprintf(&b, "Resolved %d earlier thread(s).\n", resolved)
+		}
+		if rebutted > 0 {
+			fmt.Fprintf(&b, "Replied on %d disputed thread(s).\n", rebutted)
+		}
 	}
-	return fmt.Sprintf("### Code review (round %d)\n\nFound %d issue(s), see inline comments. Each was checked twice; anything below the confidence bar was dropped.\n\n<sub>React 👍 if useful, 👎 if noise.</sub>", round, n)
+	if len(skipped) > 0 {
+		fmt.Fprintf(&b, "\nSkipped %d generated/lock/vendored file(s).\n", len(skipped))
+	}
+	b.WriteString("\n<sub>Commands: `/review` (delta + reconcile), `/review full` (whole diff). React 👍 if useful, 👎 if noise.</sub>")
+	return b.String()
 }

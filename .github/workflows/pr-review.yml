@@ -1,6 +1,10 @@
 # Copy this file into each repo that wants reviews (.github/workflows/pr-review.yml).
 # Thin trigger: create the per-PR sprite if needed, bootstrap once, run one round.
 #
+# Triggers: PR opened / pushed / marked ready (drafts skipped), or a comment
+# starting with `/review` (works on drafts too; `/review full` re-reviews the
+# whole diff). Reactions on the trigger show progress: 👀 running, 🚀 done, 😕 failed.
+#
 # Repository secrets: SPRITES_TOKEN (sprites.dev/account) and one model key:
 # GEMINI_API_KEY or ANTHROPIC_API_KEY (the reviewer picks whichever is set).
 # Repository variables: optional PRREVIEW_MODEL. The org comes from the token.
@@ -22,18 +26,42 @@ concurrency:
   cancel-in-progress: false
 
 env:
+  PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
   SPRITE_NAME: pr-${{ github.event.repository.name }}-${{ github.event.pull_request.number || github.event.issue.number }}
-  PR_REVIEW_REPO: kallepronk/pr-review
   # Scripts run from a git clone inside the sprite: raw.githubusercontent.com caches for 5 min and ignores query strings.
   SYNC: mkdir -p /work && (test -d /work/pr-review || git clone -q --depth 1 https://github.com/kallepronk/pr-review.git /work/pr-review) && git -C /work/pr-review pull -q --ff-only
+  GH_TOKEN: ${{ github.token }}
 
 jobs:
   review:
     if: |
       (github.event_name == 'pull_request' && github.event.action != 'closed') ||
-      (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '@pr-reviewer review'))
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request && startsWith(github.event.comment.body, '/review'))
     runs-on: ubuntu-latest
     steps:
+      # Reaction target: the /review comment, or the PR itself for push events.
+      - name: Signal start (👀)
+        id: ack
+        run: |
+          if [ "${{ github.event_name }}" = "issue_comment" ]; then
+            TARGET="repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions"
+          else
+            TARGET="repos/${{ github.repository }}/issues/$PR_NUMBER/reactions"
+          fi
+          ID=$(gh api -X POST "$TARGET" -f content=eyes --jq .id)
+          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+          echo "id=$ID" >> "$GITHUB_OUTPUT"
+
+      - name: Parse command
+        id: cmd
+        run: |
+          ARGS=""
+          if [ "${{ github.event_name }}" = "issue_comment" ]; then
+            ARGS="-force"
+            case "${{ github.event.comment.body }}" in /review\ full*) ARGS="$ARGS -full";; esac
+          fi
+          echo "args=$ARGS" >> "$GITHUB_OUTPUT"
+
       - name: Install and authenticate sprite CLI
         run: |
           curl -fsSL https://sprites.dev/install.sh | sh
@@ -42,7 +70,6 @@ jobs:
           "$HOME/.local/bin/sprite" org keyring disable
           # Strip stray whitespace from a pasted secret; tokens never contain any.
           "$HOME/.local/bin/sprite" auth setup --token "$(printf '%s' "$SPRITES_TOKEN" | tr -d '[:space:]')"
-          "$HOME/.local/bin/sprite" org list
         env:
           SPRITES_TOKEN: ${{ secrets.SPRITES_TOKEN }}
 
@@ -53,7 +80,7 @@ jobs:
       - name: Bootstrap (no-op after first run)
         run: |
           sprite exec -s "$SPRITE_NAME" --no-stdin \
-            --env "REPO=${{ github.repository }},GH_TOKEN=${{ github.token }}" \
+            --env "REPO=${{ github.repository }},GH_TOKEN=$GH_TOKEN" \
             -- bash -c "$SYNC && bash /work/pr-review/scripts/bootstrap.sh"
 
       - name: Resolve head SHA
@@ -62,16 +89,20 @@ jobs:
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             echo "sha=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
           else
-            echo "sha=$(gh pr view ${{ github.event.issue.number }} --repo ${{ github.repository }} --json headRefOid -q .headRefOid)" >> "$GITHUB_OUTPUT"
+            echo "sha=$(gh pr view "$PR_NUMBER" --repo ${{ github.repository }} --json headRefOid -q .headRefOid)" >> "$GITHUB_OUTPUT"
           fi
-        env:
-          GH_TOKEN: ${{ github.token }}
 
       - name: Review round
         run: |
           sprite exec -s "$SPRITE_NAME" --no-stdin \
-            --env "PR=${{ github.repository }}#${{ github.event.pull_request.number || github.event.issue.number }},HEAD_SHA=${{ steps.head.outputs.sha }},GH_TOKEN=${{ github.token }},ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }},GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},PRREVIEW_MODEL=${{ vars.PRREVIEW_MODEL }}" \
+            --env "PR=${{ github.repository }}#$PR_NUMBER,HEAD_SHA=${{ steps.head.outputs.sha }},GH_TOKEN=$GH_TOKEN,ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }},GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},PRREVIEW_MODEL=${{ vars.PRREVIEW_MODEL }},REVIEW_ARGS=${{ steps.cmd.outputs.args }}" \
             -- bash -c "$SYNC && bash /work/pr-review/scripts/round.sh"
+
+      - name: Signal result (🚀 / 😕)
+        if: always() && steps.ack.outputs.id != ''
+        run: |
+          gh api -X DELETE "${{ steps.ack.outputs.target }}/${{ steps.ack.outputs.id }}" || true
+          gh api -X POST "${{ steps.ack.outputs.target }}" -f content="${{ job.status == 'success' && 'rocket' || 'confused' }}" >/dev/null
 
   destroy:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'

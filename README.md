@@ -35,6 +35,15 @@ Without `-repo`, only the text-only tickets run (project instructions, tests). D
 go test ./...
 ```
 
+## Using it on a PR
+
+- Opening a PR, pushing to it, or marking it ready triggers a round. Drafts are skipped.
+- Comment `/review` to run a round on demand, drafts included. Reconciles earlier findings against your replies and new commits, then reviews what changed.
+- Comment `/review full` to re-review the whole diff (already posted findings are not repeated).
+- The bot reacts 👀 on the PR or your comment while working, then 🚀 (done) or 😕 (failed).
+- Reply on a finding's thread to dispute it. Next round the bot either withdraws and resolves, or answers once and then leaves the call to you. Fixed findings get resolved automatically.
+- Lockfiles, build output, vendored and generated files are never reviewed.
+
 ## Configuration
 
 | Env / flag | Purpose |
@@ -45,7 +54,8 @@ go test ./...
 | `OPENROUTER_API_KEY`, `PRREVIEW_LLM_BASE` | OpenRouter provider; base defaults to openrouter.ai, or the Sprites gateway |
 | `GH_TOKEN`, `PRREVIEW_GITHUB_BASE` | GitHub auth; in Actions the job token is passed into the sprite |
 | `-min-score` | verification threshold, default 80 |
-| `-max-findings`, `-max-hunks` | caps per round |
+| `-max-findings`, `-max-hunks`, `-max-rebuttals` | caps per round; rebuttals default 1 per disputed thread |
+| `-full`, `-force` | whole diff; run on drafts / same SHA. Set by `/review full` and `/review` |
 
 ## Sprite setup gotchas (learned the hard way)
 
@@ -58,6 +68,5 @@ go test ./...
 
 ## Not done yet
 
-- Reconcile prior findings against author replies (round 2 currently reviews only the delta diff). Prompt exists: `prompts/ticket-reconcile.md`.
 - Architecture ticket: needs `structure.json` extraction and the repo map. Prompt exists: `prompts/ticket-architecture.md`.
 - Sprites connector gateway path (OpenRouter managed, GitHub OAuth) so no keys enter the sprite; today keys pass via `sprite exec --env`.

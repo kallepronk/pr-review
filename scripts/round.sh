@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # One review round inside the sprite. Called by the workflow via sprite exec.
-# Env: PR (owner/repo#N), HEAD_SHA, ANTHROPIC_API_KEY, GH_TOKEN, optional
-# PRREVIEW_MODEL. Extra args are passed to run-review (e.g. -dry-run).
+# Env: PR (owner/repo#N), HEAD_SHA, GH_TOKEN, a model key, optional PRREVIEW_MODEL,
+# optional REVIEW_ARGS (e.g. "-force -full" from the /review command).
 set -euo pipefail
 
 # Non-interactive exec has no login PATH; npm's global bin (pi lives there) must be added.
@@ -24,4 +24,5 @@ git checkout --quiet "$HEAD_SHA"
 # cache makes this a no-op when nothing changed.
 (cd /work/pr-review && go build -o /usr/local/bin/run-review ./cmd/run-review)
 
-exec flock -n /work/.lock run-review -pr "$PR" -workdir /work -repo /work/repo "$@"
+# shellcheck disable=SC2086  # REVIEW_ARGS is a deliberate word-split flag list
+exec flock -n /work/.lock run-review -pr "$PR" -workdir /work -repo /work/repo ${REVIEW_ARGS:-} "$@"

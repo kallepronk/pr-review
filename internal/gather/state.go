@@ -12,7 +12,7 @@ type State struct {
 	Round         int             `json:"round"`
 	LastSHA       string          `json:"last_sha"`
 	Findings      []PostedFinding `json:"findings"`
-	RebuttalCount map[string]int  `json:"rebuttal_count"` // thread id -> replies we posted
+	RebuttalCount map[string]int  `json:"rebuttal_count"` // finding key -> rebuttals we posted
 }
 
 type PostedFinding struct {
@@ -22,7 +22,13 @@ type PostedFinding struct {
 	Claim     string `json:"claim"`
 	Round     int    `json:"round"`
 	Resolved  bool   `json:"resolved"`
-	ThreadID  string `json:"thread_id,omitempty"`
+	CommentID int64  `json:"comment_id,omitempty"` // review comment that opened the thread
+	ThreadID  string `json:"thread_id,omitempty"`  // GraphQL thread id, filled lazily
+}
+
+// Key identifies a finding across rounds.
+func (f PostedFinding) Key() string {
+	return f.Path + ":" + itoa(f.Line) + ":" + f.Dimension
 }
 
 func LoadState(dir string) (*State, error) {
@@ -62,9 +68,25 @@ func (s *State) AlreadyPosted(path string, line int, dimension string) bool {
 	return false
 }
 
+// Open returns indexes of findings whose threads we have not closed.
+func (s *State) Open() []int {
+	var idx []int
+	for i, f := range s.Findings {
+		if !f.Resolved && f.CommentID != 0 {
+			idx = append(idx, i)
+		}
+	}
+	return idx
+}
+
 func abs(n int) int {
 	if n < 0 {
 		return -n
 	}
 	return n
+}
+
+func itoa(n int) string {
+	b, _ := json.Marshal(n)
+	return string(b)
 }
