@@ -266,10 +266,34 @@ func (c *Client) ReviewThreads(owner, repo string, n int) ([]Thread, error) {
 	return threads, nil
 }
 
+// ResolveThread marks a review thread resolved. GraphQL reports failures inside
+// a 200 body, so the errors array is checked explicitly.
 func (c *Client) ResolveThread(threadID string) error {
 	q := `mutation($id:ID!){resolveReviewThread(input:{threadId:$id}){thread{isResolved}}}`
 	in := map[string]any{"query": q, "variables": map[string]any{"id": threadID}}
-	return c.do("POST", "/graphql", "", in, nil)
+	var out struct {
+		Data struct {
+			ResolveReviewThread struct {
+				Thread struct {
+					IsResolved bool `json:"isResolved"`
+				} `json:"thread"`
+			} `json:"resolveReviewThread"`
+		} `json:"data"`
+		Errors []struct {
+			Type    string `json:"type"`
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+	if err := c.do("POST", "/graphql", "", in, &out); err != nil {
+		return err
+	}
+	if len(out.Errors) > 0 {
+		return fmt.Errorf("resolveReviewThread: %s %s", out.Errors[0].Type, out.Errors[0].Message)
+	}
+	if !out.Data.ResolveReviewThread.Thread.IsResolved {
+		return fmt.Errorf("resolveReviewThread: thread %s still unresolved", threadID)
+	}
+	return nil
 }
 
 func truncate(s string, n int) string {

@@ -116,7 +116,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		actions, err = review.Reconcile(ctx, cfg, state, threads, delta, head)
+		actions, err = review.Reconcile(ctx, cfg, state, threads, delta)
 		if err != nil {
 			log.Fatal(err)
 		}

@@ -11,7 +11,9 @@ Answer with exactly one status:
 - disputed_invalid: a human disagrees and they are right, or the original finding was wrong.
 - unchanged: nobody replied and the code did not change in a way that affects the finding.
 
-Return only JSON: {"status":"fixed|disputed_valid|disputed_invalid|unchanged","reply":"<one or two sentences to post on the thread, or empty>"}
+The `reply` is posted on the thread as the reviewer, addressed to the author: first person, at most two sentences, no preamble like "the reviewer's reply indicates". For `fixed` and `unchanged` leave it empty.
+
+Return only JSON: {"status":"fixed|disputed_valid|disputed_invalid|unchanged","reply":"<text to post, or empty>"}
 
 Finding:
 

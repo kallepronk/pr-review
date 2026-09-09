@@ -3,7 +3,6 @@ package review
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"strings"
 	"text/template"
@@ -31,7 +30,7 @@ type Action struct {
 // Reconcile decides, for each open prior finding, what happened to it: fixed by
 // the new diff, disputed by a human, or untouched. Findings with no human
 // reply and no change on their file are skipped without a model call.
-func Reconcile(ctx context.Context, cfg Config, state *gather.State, threads []github.Thread, delta []gather.Hunk, headSHA string) ([]Action, error) {
+func Reconcile(ctx context.Context, cfg Config, state *gather.State, threads []github.Thread, delta []gather.Hunk) ([]Action, error) {
 	tmpl, err := template.ParseFS(prompts.FS, "ticket-reconcile.md")
 	if err != nil {
 		return nil, err
@@ -94,7 +93,7 @@ func Reconcile(ctx context.Context, cfg Config, state *gather.State, threads []g
 		a := Action{Index: i, Verdict: v}
 		switch v.Status {
 		case "fixed":
-			a.Reply = fmt.Sprintf("Fixed in %s, resolving.", short(headSHA))
+			a.Reply = "Fixed, resolving."
 			a.Resolve = true
 		case "disputed_invalid":
 			a.Reply = firstNonEmpty(v.Reply, "You're right, withdrawing this one.")
@@ -114,13 +113,6 @@ func Reconcile(ctx context.Context, cfg Config, state *gather.State, threads []g
 
 func isBot(login string) bool {
 	return strings.HasSuffix(login, "[bot]") || login == "github-actions"
-}
-
-func short(sha string) string {
-	if len(sha) > 7 {
-		return sha[:7]
-	}
-	return sha
 }
 
 func firstNonEmpty(a, b string) string {
